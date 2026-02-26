@@ -26,8 +26,10 @@ public class LiquidSolidForm : MonoBehaviour
     public float gasMoveSpeedMultiplier = 0.3f;
     public Color gasColor = new Color(0.6f, 0.7f, 0.9f, 0.4f);
 
-    [Header("Death Settings")]
+    [Header("Heat Death Settings")]
     public LayerMask hotZoneLayer;
+    public float heatDeathTime = 3f;
+    public HeatDamageUI heatDamageUI;
 
     private LiquidSimulation simulation;
     private List<LiquidParticle> particles = new List<LiquidParticle>();
@@ -44,12 +46,20 @@ public class LiquidSolidForm : MonoBehaviour
     private float currentParticleScale;
     private float currentBlobRadius;
     private bool isDead = false;
+    private float currentHeat = 0f;
+    private bool isInHotZone = false;
 
     public event System.Action OnPlayerDied;
 
     void Start()
     {
         InitializeSimulation();
+
+        // Try to find HeatDamageUI if not assigned
+        if (heatDamageUI == null)
+        {
+            heatDamageUI = FindObjectOfType<HeatDamageUI>();
+        }
     }
 
     void InitializeSimulation()
@@ -104,7 +114,12 @@ public class LiquidSolidForm : MonoBehaviour
 
         if (currentState == MatterState.Gas)
         {
-            CheckHotZones();
+            UpdateHeatDamage();
+        }
+        else
+        {
+            // Cool down when not in gas state
+            CoolDown();
         }
     }
 
@@ -116,7 +131,6 @@ public class LiquidSolidForm : MonoBehaviour
         {
             if (simulation == null) return;
 
-            // Cycle: Liquid -> Solid -> Gas -> Liquid
             switch (currentState)
             {
                 case MatterState.Liquid:
@@ -140,7 +154,6 @@ public class LiquidSolidForm : MonoBehaviour
     {
         if (simulation == null) return;
 
-        // Reset spring strength to initial value first
         simulation.springStrength = initialSpringStrength;
 
         switch (currentState)
@@ -162,6 +175,96 @@ public class LiquidSolidForm : MonoBehaviour
                 solidRadius = initialSolidRadius * gasBlobExpansion;
                 break;
         }
+    }
+
+    void UpdateHeatDamage()
+    {
+        if (particles.Count == 0) return;
+
+        // Check if any particle is inside a hot zone
+        isInHotZone = false;
+        foreach (var particle in particles)
+        {
+            Collider2D hotZone = Physics2D.OverlapCircle(particle.transform.position, 0.1f, hotZoneLayer);
+            if (hotZone != null)
+            {
+                isInHotZone = true;
+                break;
+            }
+        }
+
+        if (isInHotZone)
+        {
+            // Accumulate heat
+            currentHeat += Time.fixedDeltaTime;
+
+            // Update UI
+            if (heatDamageUI != null)
+            {
+                heatDamageUI.UpdateHeatBar(currentHeat / heatDeathTime);
+            }
+
+            // Flash particles red as heat increases
+            float heatPercent = currentHeat / heatDeathTime;
+            foreach (var particle in particles)
+            {
+                SpriteRenderer sr = particle.GetComponent<SpriteRenderer>();
+                if (sr != null)
+                {
+                    sr.color = Color.Lerp(gasColor, new Color(1f, 0.2f, 0f, 0.6f), heatPercent);
+                }
+            }
+
+            // Check if dead
+            if (currentHeat >= heatDeathTime)
+            {
+                Die();
+            }
+        }
+        else
+        {
+            CoolDown();
+        }
+    }
+
+    void CoolDown()
+    {
+        if (currentHeat > 0f)
+        {
+            // Cool down twice as fast as heating up
+            currentHeat = Mathf.Max(0f, currentHeat - Time.fixedDeltaTime * 2f);
+
+            if (heatDamageUI != null)
+            {
+                heatDamageUI.UpdateHeatBar(currentHeat / heatDeathTime);
+            }
+        }
+    }
+
+    void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+        Debug.Log("DEAD! Gas overheated in hot zone!");
+
+        if (heatDamageUI != null)
+        {
+            heatDamageUI.ShowDeath();
+        }
+
+        foreach (var particle in particles)
+        {
+            SpriteRenderer sr = particle.GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.color = new Color(1f, 0.3f, 0.1f, 0.5f);
+            }
+            particle.velocity = Vector2.zero;
+            particle.force = Vector2.zero;
+        }
+
+        OnPlayerDied?.Invoke();
     }
 
     void UpdateBlobProperties()
@@ -238,7 +341,7 @@ public class LiquidSolidForm : MonoBehaviour
 
     void UpdateParticleColors()
     {
-        if (particles.Count == 0) return;
+        if (particles.Count == 0 || isInHotZone) return;
 
         Color targetColor;
         switch (currentState)
@@ -259,45 +362,6 @@ public class LiquidSolidForm : MonoBehaviour
                 sr.color = Color.Lerp(sr.color, targetColor, Time.fixedDeltaTime * transitionSpeed);
             }
         }
-    }
-
-    void CheckHotZones()
-    {
-        if (particles.Count == 0) return;
-
-        // Check if any particle is inside a hot zone
-        foreach (var particle in particles)
-        {
-            Collider2D hotZone = Physics2D.OverlapCircle(particle.transform.position, 0.1f, hotZoneLayer);
-            if (hotZone != null)
-            {
-                Die();
-                return;
-            }
-        }
-    }
-
-    void Die()
-    {
-        if (isDead) return;
-
-        isDead = true;
-        Debug.Log("DEAD! Gas entered a hot zone!");
-
-        // Disable all particles visually
-        foreach (var particle in particles)
-        {
-            SpriteRenderer sr = particle.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                sr.color = new Color(1f, 0.3f, 0.1f, 0.5f);
-            }
-            particle.velocity = Vector2.zero;
-            particle.force = Vector2.zero;
-        }
-
-        // Notify listeners
-        OnPlayerDied?.Invoke();
     }
 
     void PushMovableObjects()
