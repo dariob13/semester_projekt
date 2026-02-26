@@ -14,10 +14,12 @@ public class LiquidSimulation : MonoBehaviour
     public float springDamping = 8f;
     public float restDistance = 0.4f;
     public float maxConnectionDistance = 1.2f;
-    public float viscosity = 0.3f;
+    public float viscosity = 0.8f;
+    public float groundFriction = 0.3f;
 
     [Header("Environment")]
     public LayerMask environmentLayer;
+    public LayerMask movableLayer;
     public float gravity = 9.81f;
 
     [Header("Player Control")]
@@ -27,6 +29,8 @@ public class LiquidSimulation : MonoBehaviour
     private List<LiquidParticle> particles = new List<LiquidParticle>();
     private List<SpringConnection> connections = new List<SpringConnection>();
     private float initialSpringStrength;
+    private Vector2 blobCenter;
+    private MatterState currentState = MatterState.Liquid;
 
     private class SpringConnection
     {
@@ -50,7 +54,6 @@ public class LiquidSimulation : MonoBehaviour
 
     void CreateLiquidBlob()
     {
-        // Create particles in a circular blob
         float radius = Mathf.Sqrt(particleCount) * particleSize;
 
         for (int i = 0; i < particleCount; i++)
@@ -67,7 +70,6 @@ public class LiquidSimulation : MonoBehaviour
             }
             else
             {
-                // Create empty GameObject if no prefab is assigned
                 particleObj = new GameObject("Particle");
                 particleObj.transform.SetParent(transform);
                 particleObj.transform.position = transform.position + (Vector3)offset;
@@ -85,7 +87,6 @@ public class LiquidSimulation : MonoBehaviour
             particles.Add(particle);
         }
 
-        // Create spring connections between nearby particles
         UpdateConnections();
     }
 
@@ -109,7 +110,8 @@ public class LiquidSimulation : MonoBehaviour
 
     void FixedUpdate()
     {
-        // Apply spring forces
+        UpdateBlobCenter();
+
         foreach (var connection in connections)
         {
             Vector2 delta = connection.particleB.transform.position - connection.particleA.transform.position;
@@ -120,10 +122,8 @@ public class LiquidSimulation : MonoBehaviour
                 Vector2 direction = delta / distance;
                 float stretch = distance - connection.restLength;
 
-                // Spring force (Hooke's law)
                 Vector2 springForce = direction * stretch * springStrength;
 
-                // Damping force
                 Vector2 relativeVelocity = connection.particleB.velocity - connection.particleA.velocity;
                 Vector2 dampingForce = relativeVelocity * springDamping;
 
@@ -134,26 +134,60 @@ public class LiquidSimulation : MonoBehaviour
             }
         }
 
-        // Apply viscosity (internal friction between particles)
         ApplyViscosity();
 
-        // Apply gravity and update particles - ONLY ONCE
-        foreach (var particle in particles)
+        LayerMask collisionMask = currentState == MatterState.Solid
+            ? (environmentLayer | movableLayer)
+            : environmentLayer;
+
+        // Gas has reversed/reduced gravity
+        float currentGravity = gravity;
+        if (currentState == MatterState.Gas)
         {
-            particle.ApplyForce(Vector2.down * gravity * particle.mass);
-            particle.UpdatePhysics(Time.fixedDeltaTime);
-            particle.CheckEnvironmentCollision(environmentLayer);
+            LiquidSolidForm form = GetComponent<LiquidSolidForm>();
+            if (form == null) form = FindObjectOfType<LiquidSolidForm>();
+            if (form != null)
+            {
+                currentGravity = gravity * form.GetGasGravityMultiplier();
+            }
         }
 
-        // Periodically rebuild connections for dynamic behavior
+        foreach (var particle in particles)
+        {
+            particle.ApplyGravity(currentGravity);
+
+            if (particle.IsGrounded())
+            {
+                particle.velocity.x *= (1f - groundFriction * Time.fixedDeltaTime);
+            }
+
+            particle.UpdatePhysics(Time.fixedDeltaTime);
+            particle.CheckEnvironmentCollision(collisionMask);
+        }
+
         if (Time.frameCount % 20 == 0)
         {
             UpdateConnections();
         }
     }
 
+    void UpdateBlobCenter()
+    {
+        if (particles.Count == 0) return;
+
+        blobCenter = Vector2.zero;
+        foreach (var particle in particles)
+        {
+            blobCenter += (Vector2)particle.transform.position;
+        }
+        blobCenter /= particles.Count;
+    }
+
     void ApplyViscosity()
     {
+        // Gas has much higher viscosity (sludgy)
+        float currentViscosity = currentState == MatterState.Gas ? viscosity * 3f : viscosity;
+
         for (int i = 0; i < particles.Count; i++)
         {
             Vector2 avgVelocity = Vector2.zero;
@@ -175,8 +209,44 @@ public class LiquidSimulation : MonoBehaviour
             if (neighbors > 0)
             {
                 avgVelocity /= neighbors;
-                Vector2 viscosityForce = (avgVelocity - particles[i].velocity) * viscosity;
+                Vector2 viscosityForce = (avgVelocity - particles[i].velocity) * currentViscosity;
                 particles[i].ApplyForce(viscosityForce);
+            }
+        }
+    }
+
+    public void SetMatterState(MatterState state)
+    {
+        currentState = state;
+    }
+
+    // Keep backward compatibility
+    public void SetSolidState(bool solid)
+    {
+        currentState = solid ? MatterState.Solid : MatterState.Liquid;
+    }
+
+    public void ApplyDirectionalForce(Vector2 direction, float strength)
+    {
+        foreach (var particle in particles)
+        {
+            particle.ApplyForce(direction * strength);
+        }
+    }
+
+    public void ApplyCohesion(float strength)
+    {
+        if (particles.Count == 0) return;
+
+        foreach (var particle in particles)
+        {
+            Vector2 toCenter = blobCenter - (Vector2)particle.transform.position;
+            float distance = toCenter.magnitude;
+
+            if (distance > restDistance * 0.5f)
+            {
+                float factor = Mathf.Clamp01(distance / (restDistance * 3f));
+                particle.ApplyForce(toCenter.normalized * strength * factor);
             }
         }
     }
@@ -200,7 +270,6 @@ public class LiquidSimulation : MonoBehaviour
     {
         if (!Application.isPlaying || particles == null) return;
 
-        // Draw spring connections
         Gizmos.color = new Color(0f, 1f, 0f, 0.3f);
         foreach (var connection in connections)
         {
