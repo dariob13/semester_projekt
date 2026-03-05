@@ -4,6 +4,8 @@ public class LiquidController : MonoBehaviour
 {
     private LiquidSimulation simulation;
     private LiquidSolidForm solidForm;
+    private Pipe nearbyPipe;
+    private PipeUI pipeUI;
 
     [Header("Keyboard Control")]
     public float moveForce = 120f;
@@ -13,6 +15,9 @@ public class LiquidController : MonoBehaviour
     [Header("Jump Settings")]
     public float jumpForce = 200f;
     public float jumpCooldown = 0.5f;
+
+    [Header("Pipe Settings")]
+    public KeyCode pipeEnterKey = KeyCode.F;
 
     private float wobbleTimer = 0f;
     private float jumpTimer = 0f;
@@ -30,6 +35,8 @@ public class LiquidController : MonoBehaviour
         {
             solidForm = FindObjectOfType<LiquidSolidForm>();
         }
+
+        pipeUI = FindObjectOfType<PipeUI>();
     }
 
     void FixedUpdate()
@@ -44,6 +51,8 @@ public class LiquidController : MonoBehaviour
         if (solidForm != null && solidForm.GetIsDead()) return;
 
         HandleJump();
+        HandlePipeDetection();
+        HandlePipeInput();
     }
 
     void HandleKeyboardControl()
@@ -116,6 +125,73 @@ public class LiquidController : MonoBehaviour
             {
                 simulation.ApplyDirectionalForce(Vector2.up, jumpForce);
                 jumpTimer = jumpCooldown;
+            }
+        }
+    }
+
+    void HandlePipeDetection()
+    {
+        // Find nearby pipes
+        Pipe[] allPipes = FindObjectsOfType<Pipe>();
+        nearbyPipe = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var pipe in allPipes)
+        {
+            if (pipe.IsPlayerNearby())
+            {
+                float distance = Vector2.Distance(transform.position, pipe.transform.position);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    nearbyPipe = pipe;
+                }
+            }
+        }
+
+        // Debug: Show pipe detection info
+        if (allPipes.Length > 0)
+        {
+            Debug.Log($"[PipeDetection] Found {allPipes.Length} pipes. Nearest pipe distance: {closestDistance}");
+        }
+
+        // Update UI
+        if (pipeUI != null)
+        {
+            if (nearbyPipe != null && solidForm != null && solidForm.GetCurrentState() == MatterState.Liquid)
+            {
+                pipeUI.ShowPrompt();
+            }
+            else
+            {
+                pipeUI.HidePrompt();
+            }
+        }
+    }
+
+    void HandlePipeInput()
+    {
+        if (Input.GetKeyDown(pipeEnterKey) && nearbyPipe != null && solidForm != null)
+        {
+            if (solidForm.GetCurrentState() == MatterState.Liquid)
+            {
+                if (pipeUI != null)
+                {
+                    pipeUI.ShowTraversalMessage();
+                }
+
+                if (nearbyPipe.TryEnterPipe(solidForm))
+                {
+                    Debug.Log("Entered pipe!");
+                }
+                else
+                {
+                    Debug.Log("Pipe is occupied!");
+                }
+            }
+            else
+            {
+                Debug.Log("Can only enter pipes in liquid form!");
             }
         }
     }

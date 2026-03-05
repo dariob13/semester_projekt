@@ -267,6 +267,32 @@ public class LiquidSolidForm : MonoBehaviour
         OnPlayerDied?.Invoke();
     }
 
+    public void ForceKill()
+    {
+        if (isDead) return;
+
+        isDead = true;
+        Debug.Log("DEAD! Spotted by AI!");
+
+        if (heatDamageUI != null)
+        {
+            heatDamageUI.ShowDeath();
+        }
+
+        foreach (var particle in particles)
+        {
+            SpriteRenderer sr = particle.GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.color = new Color(0.1f, 0.1f, 0.1f, 0.5f);
+            }
+            particle.velocity = Vector2.zero;
+            particle.force = Vector2.zero;
+        }
+
+        OnPlayerDied?.Invoke();
+    }
+
     void UpdateBlobProperties()
     {
         particles.Clear();
