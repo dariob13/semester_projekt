@@ -6,6 +6,7 @@ public class LiquidController : MonoBehaviour
     private LiquidSolidForm solidForm;
     private Pipe nearbyPipe;
     private PipeUI pipeUI;
+    private PatrolAI controlledAI;
 
     [Header("Keyboard Control")]
     public float moveForce = 120f;
@@ -16,8 +17,8 @@ public class LiquidController : MonoBehaviour
     public float jumpForce = 200f;
     public float jumpCooldown = 0.5f;
 
-    [Header("Pipe Settings")]
-    public KeyCode pipeEnterKey = KeyCode.F;
+    [Header("AI Control")]
+    public KeyCode takeControlKey = KeyCode.E;
 
     private float wobbleTimer = 0f;
     private float jumpTimer = 0f;
@@ -43,7 +44,14 @@ public class LiquidController : MonoBehaviour
     {
         if (solidForm != null && solidForm.GetIsDead()) return;
 
-        HandleKeyboardControl();
+        if (controlledAI != null)
+        {
+            HandleAIControl();
+        }
+        else
+        {
+            HandleKeyboardControl();
+        }
     }
 
     void Update()
@@ -53,6 +61,7 @@ public class LiquidController : MonoBehaviour
         HandleJump();
         HandlePipeDetection();
         HandlePipeInput();
+        HandleAIControlInput();
     }
 
     void HandleKeyboardControl()
@@ -99,9 +108,72 @@ public class LiquidController : MonoBehaviour
         simulation.ApplyCohesion(cohesionForce);
     }
 
+    void HandleAIControl()
+    {
+        Vector2 direction = Vector2.zero;
+
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+            direction += Vector2.up;
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+            direction += Vector2.down;
+        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+            direction += Vector2.left;
+        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+            direction += Vector2.right;
+
+        controlledAI.TakeControl(direction.normalized);
+
+        // Exit control if AI is knocked out
+        if (controlledAI.IsKnockedOut())
+        {
+            controlledAI = null;
+            Debug.Log("*** AI CONTROL RELEASED - GUARD KNOCKED OUT ***");
+        }
+    }
+
+    void HandleAIControlInput()
+    {
+        if (Input.GetKeyDown(takeControlKey))
+        {
+            if (controlledAI == null)
+            {
+                // Try to control nearby AI
+                PatrolAI[] allGuards = FindObjectsOfType<PatrolAI>();
+                PatrolAI closestGuard = null;
+                float closestDist = 5f;
+
+                foreach (var guard in allGuards)
+                {
+                    if (guard.IsKnockedOut()) continue;
+
+                    float dist = Vector2.Distance(transform.position, guard.transform.position);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestGuard = guard;
+                    }
+                }
+
+                if (closestGuard != null)
+                {
+                    controlledAI = closestGuard;
+                    Debug.Log("*** TAKING CONTROL OF AI GUARD ***");
+                }
+            }
+            else
+            {
+                // Release control
+                controlledAI = null;
+                Debug.Log("*** AI CONTROL RELEASED ***");
+            }
+        }
+    }
+
     void HandleJump()
     {
         jumpTimer -= Time.deltaTime;
+
+        if (controlledAI != null) return; // No jumping while controlling AI
 
         // Only solid state can jump
         if (solidForm == null || !solidForm.GetIsSolid())
@@ -131,6 +203,8 @@ public class LiquidController : MonoBehaviour
 
     void HandlePipeDetection()
     {
+        if (controlledAI != null) return; // No pipe interaction while controlling AI
+
         // Find nearby pipes
         Pipe[] allPipes = FindObjectsOfType<Pipe>();
         nearbyPipe = null;
@@ -149,12 +223,6 @@ public class LiquidController : MonoBehaviour
             }
         }
 
-        // Debug: Show pipe detection info
-        if (allPipes.Length > 0)
-        {
-            Debug.Log($"[PipeDetection] Found {allPipes.Length} pipes. Nearest pipe distance: {closestDistance}");
-        }
-
         // Update UI
         if (pipeUI != null)
         {
@@ -171,7 +239,7 @@ public class LiquidController : MonoBehaviour
 
     void HandlePipeInput()
     {
-        if (Input.GetKeyDown(pipeEnterKey) && nearbyPipe != null && solidForm != null)
+        if (Input.GetKeyDown(KeyCode.F) && nearbyPipe != null && solidForm != null)
         {
             if (solidForm.GetCurrentState() == MatterState.Liquid)
             {
@@ -184,14 +252,6 @@ public class LiquidController : MonoBehaviour
                 {
                     Debug.Log("Entered pipe!");
                 }
-                else
-                {
-                    Debug.Log("Pipe is occupied!");
-                }
-            }
-            else
-            {
-                Debug.Log("Can only enter pipes in liquid form!");
             }
         }
     }
