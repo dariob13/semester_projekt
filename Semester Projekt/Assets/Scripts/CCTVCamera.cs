@@ -133,6 +133,19 @@ public class CCTVCamera : MonoBehaviour
             if (cachedPlayer == null) return;
         }
 
+        // Gas state is invisible to cameras
+        if (cachedPlayer.GetCurrentState() == MatterState.Gas)
+        {
+            // Reset detection if player switches to gas mid-detection
+            if (hasDetected)
+            {
+                hasDetected = false;
+                alertTimer = 0f;
+                OnPlayerLost?.Invoke();
+            }
+            return;
+        }
+
         Vector2 playerPos = GetBlobCenter(cachedPlayer);
         Vector2 origin = transform.position;
         Vector2 viewDir = GetCurrentViewDirection();

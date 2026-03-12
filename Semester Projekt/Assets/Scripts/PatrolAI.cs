@@ -267,6 +267,22 @@ public class PatrolAI : MonoBehaviour
         if (player == null)
             return;
 
+        // Gas state is invisible to guards
+        if (player.GetCurrentState() == MatterState.Gas)
+        {
+            // Reset detection if player switches to gas mid-detection
+            if (hasDetected)
+            {
+                hasDetected = false;
+                alertTimer = 0f;
+                OnPlayerLost?.Invoke();
+
+                if (spriteRenderer != null)
+                    spriteRenderer.color = normalColor;
+            }
+            return;
+        }
+
         Vector2 playerPos = GetBlobCenter(player);
         Vector2 origin = transform.position;
         Vector2 detectionDir = isMovingRight ? Vector2.right : Vector2.left;
@@ -287,15 +303,13 @@ public class PatrolAI : MonoBehaviour
             currentDetectionAngle *= lockdownConeMultiplier;
         }
 
-        // Check if player is within angle and distance
         bool inAngleAndRange = (angleToPlayer < currentDetectionAngle / 2f) && (distToPlayer < currentDetectionDistance);
 
-        // Check line of sight - blocked by obstacles?
         bool hasLineOfSight = false;
         if (inAngleAndRange)
         {
             RaycastHit2D hit = Physics2D.Raycast(origin, toPlayer, distToPlayer, obstacleLayer);
-            hasLineOfSight = hit.collider == null; // No obstacle between guard and player
+            hasLineOfSight = hit.collider == null;
         }
 
         bool playerInCone = inAngleAndRange && hasLineOfSight;

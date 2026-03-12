@@ -19,6 +19,7 @@ public class LiquidController : MonoBehaviour
 
     [Header("AI Control")]
     public KeyCode takeControlKey = KeyCode.Q;
+    public float controlRadius = 1f;
 
     [Header("Pipe Settings")]
     public KeyCode pipeEnterKey = KeyCode.F;
@@ -125,38 +126,58 @@ public class LiquidController : MonoBehaviour
 
     void HandleAIControlInput()
     {
-        if (Input.GetKeyDown(takeControlKey))
+        if (!Input.GetKeyDown(takeControlKey)) return;
+
+        if (controlledAI == null)
         {
-            if (controlledAI == null)
+            // Use blob center for accurate distance check
+            Vector2 blobCenter = GetBlobCenter();
+
+            PatrolAI[] allGuards = FindObjectsOfType<PatrolAI>();
+            PatrolAI closestGuard = null;
+            float closestDist = controlRadius;
+
+            foreach (var guard in allGuards)
             {
-                PatrolAI[] allGuards = FindObjectsOfType<PatrolAI>();
-                PatrolAI closestGuard = null;
-                float closestDist = 5f;
+                if (guard.IsKnockedOut()) continue;
 
-                foreach (var guard in allGuards)
+                float dist = Vector2.Distance(blobCenter, guard.transform.position);
+                if (dist < closestDist)
                 {
-                    if (guard.IsKnockedOut()) continue;
-
-                    float dist = Vector2.Distance(transform.position, guard.transform.position);
-                    if (dist < closestDist)
-                    {
-                        closestDist = dist;
-                        closestGuard = guard;
-                    }
+                    closestDist = dist;
+                    closestGuard = guard;
                 }
+            }
 
-                if (closestGuard != null)
-                {
-                    controlledAI = closestGuard;
-                    Debug.Log("*** TAKING CONTROL OF AI GUARD ***");
-                }
+            if (closestGuard != null)
+            {
+                controlledAI = closestGuard;
+                Debug.Log($"*** TAKING CONTROL OF {closestGuard.name} (dist: {closestDist:F2}m) ***");
             }
             else
             {
-                controlledAI = null;
-                Debug.Log("*** AI CONTROL RELEASED ***");
+                Debug.Log($"*** NO GUARD IN RANGE ({controlRadius}m) ***");
             }
         }
+        else
+        {
+            controlledAI = null;
+            Debug.Log("*** AI CONTROL RELEASED ***");
+        }
+    }
+
+    private Vector2 GetBlobCenter()
+    {
+        if (solidForm == null) return transform.position;
+
+        LiquidParticle[] particles = solidForm.GetComponentsInChildren<LiquidParticle>();
+        if (particles.Length == 0) return transform.position;
+
+        Vector2 center = Vector2.zero;
+        foreach (var p in particles)
+            center += (Vector2)p.transform.position;
+
+        return center / particles.Length;
     }
 
     void HandleJump()
@@ -197,7 +218,6 @@ public class LiquidController : MonoBehaviour
             return;
         }
 
-        // Find nearest pipe using blob center
         Pipe[] allPipes = FindObjectsOfType<Pipe>();
         nearbyPipe = null;
         float closestDist = float.MaxValue;
@@ -248,5 +268,28 @@ public class LiquidController : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         isInPipe = false;
+    }
+
+    void OnDrawGizmos()
+    {
+        if (!Application.isPlaying) return;
+
+        // Show control radius in scene view
+        Gizmos.color = new Color(0f, 1f, 1f, 0.2f);
+        Vector2 center = GetBlobCenter();
+        DrawCircle(center, controlRadius, 32);
+    }
+
+    private void DrawCircle(Vector2 center, float radius, int segments)
+    {
+        float angleStep = 360f / segments;
+        Vector3 prev = center + new Vector2(radius, 0);
+        for (int i = 1; i <= segments; i++)
+        {
+            float angle = i * angleStep * Mathf.Deg2Rad;
+            Vector3 next = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
     }
 }
