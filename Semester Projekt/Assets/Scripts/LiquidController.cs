@@ -7,6 +7,7 @@ public class LiquidController : MonoBehaviour
     private Pipe nearbyPipe;
     private PipeUI pipeUI;
     private PatrolAI controlledAI;
+    private CameraFollower cameraFollower;
 
     [Header("Keyboard Control")]
     public float moveForce = 120f;
@@ -24,9 +25,19 @@ public class LiquidController : MonoBehaviour
     [Header("Pipe Settings")]
     public KeyCode pipeEnterKey = KeyCode.F;
 
+    [Header("Fall Impact Settings")]
+    public float fallThreshold = 3f;
+    public float shakeIntensityPerMeter = 0.05f;
+    public float maxShakeIntensity = 0.4f;
+
     private float wobbleTimer = 0f;
     private float jumpTimer = 0f;
     private bool isInPipe = false;
+
+    // Fall tracking
+    private float highestY = float.MinValue;
+    private bool isFalling = false;
+    private float previousBlobY = 0f;
 
     void Start()
     {
@@ -39,6 +50,9 @@ public class LiquidController : MonoBehaviour
             solidForm = FindObjectOfType<LiquidSolidForm>();
 
         pipeUI = FindObjectOfType<PipeUI>();
+        cameraFollower = FindObjectOfType<CameraFollower>();
+
+        previousBlobY = GetBlobCenter().y;
     }
 
     void FixedUpdate()
@@ -61,6 +75,73 @@ public class LiquidController : MonoBehaviour
         HandlePipeDetection();
         HandlePipeInput();
         HandleAIControlInput();
+        TrackFall();
+    }
+
+    void TrackFall()
+    {
+        // Only track falls in solid state
+        if (solidForm == null || !solidForm.GetIsSolid())
+        {
+            isFalling = false;
+            highestY = float.MinValue;
+            previousBlobY = GetBlobCenter().y;
+            return;
+        }
+
+        float currentBlobY = GetBlobCenter().y;
+        float verticalVelocity = currentBlobY - previousBlobY;
+
+        // Moving downward
+        if (verticalVelocity < -0.01f)
+        {
+            if (!isFalling)
+            {
+                // Just started falling - record highest point
+                highestY = previousBlobY;
+                isFalling = true;
+            }
+        }
+        else if (isFalling && verticalVelocity >= -0.01f)
+        {
+            // Stopped falling - check if grounded
+            bool grounded = IsAnyParticleGrounded();
+            if (grounded)
+            {
+                float fallDistance = highestY - currentBlobY;
+
+                if (fallDistance >= fallThreshold)
+                {
+                    float excess = fallDistance - fallThreshold;
+                    float intensity = Mathf.Clamp(
+                        shakeIntensityPerMeter * fallDistance + excess * 0.02f,
+                        0f,
+                        maxShakeIntensity
+                    );
+
+                    if (cameraFollower != null)
+                        cameraFollower.Shake(intensity);
+
+                    Debug.Log($"[FallImpact] Fell {fallDistance:F1}m → Shake: {intensity:F2}");
+                }
+
+                isFalling = false;
+                highestY = float.MinValue;
+            }
+        }
+
+        previousBlobY = currentBlobY;
+    }
+
+    private bool IsAnyParticleGrounded()
+    {
+        LiquidParticle[] particles = solidForm.GetComponentsInChildren<LiquidParticle>();
+        foreach (var p in particles)
+        {
+            if (p.IsGrounded())
+                return true;
+        }
+        return false;
     }
 
     void HandleKeyboardControl()
@@ -130,7 +211,6 @@ public class LiquidController : MonoBehaviour
 
         if (controlledAI == null)
         {
-            // Use blob center for accurate distance check
             Vector2 blobCenter = GetBlobCenter();
 
             PatrolAI[] allGuards = FindObjectsOfType<PatrolAI>();
@@ -260,7 +340,6 @@ public class LiquidController : MonoBehaviour
         else
         {
             isInPipe = false;
-            Debug.Log("Pipe is occupied!");
         }
     }
 
@@ -274,7 +353,6 @@ public class LiquidController : MonoBehaviour
     {
         if (!Application.isPlaying) return;
 
-        // Show control radius in scene view
         Gizmos.color = new Color(0f, 1f, 1f, 0.2f);
         Vector2 center = GetBlobCenter();
         DrawCircle(center, controlRadius, 32);

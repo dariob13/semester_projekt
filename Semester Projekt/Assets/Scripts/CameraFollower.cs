@@ -21,8 +21,15 @@ public class CameraFollower : MonoBehaviour
     public float minY = -10f;
     public float maxY = 10f;
 
+    [Header("Camera Shake")]
+    public float shakeDecaySpeed = 5f;
+
     private LiquidSolidForm player;
     private LiquidParticle[] particles;
+
+    // Shake state
+    private float shakeIntensity = 0f;
+    private Vector3 shakeOffset = Vector3.zero;
 
     void Start()
     {
@@ -35,7 +42,6 @@ public class CameraFollower : MonoBehaviour
         }
 
         particles = player.GetComponentsInChildren<LiquidParticle>();
-        Debug.Log($"CameraFollower: Found {particles.Length} particles to track");
 
         // Snap to blob immediately on start
         Vector2 startBlobCenter = GetBlobCenter();
@@ -52,27 +58,19 @@ public class CameraFollower : MonoBehaviour
 
         // Refresh particles in case they changed
         if (particles == null || particles.Length == 0)
-        {
             particles = player.GetComponentsInChildren<LiquidParticle>();
-        }
 
         Vector2 blobCenter = GetBlobCenter();
-
         Vector3 targetPos = transform.position;
 
         if (followX)
-        {
             targetPos.x = blobCenter.x + xOffset;
-        }
 
         if (followY)
-        {
             targetPos.y = blobCenter.y + yOffset;
-        }
 
         targetPos.z = -10f;
 
-        // Apply bounds if enabled
         if (useBounds)
         {
             targetPos.x = Mathf.Clamp(targetPos.x, minX, maxX);
@@ -80,7 +78,23 @@ public class CameraFollower : MonoBehaviour
         }
 
         // Smooth follow
-        transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * followSpeed);
+        Vector3 smoothedPos = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * followSpeed);
+
+        // Decay shake
+        shakeIntensity = Mathf.Lerp(shakeIntensity, 0f, Time.deltaTime * shakeDecaySpeed);
+        shakeOffset = shakeIntensity > 0.005f
+            ? new Vector3(
+                Random.Range(-shakeIntensity, shakeIntensity),
+                Random.Range(-shakeIntensity, shakeIntensity),
+                0f)
+            : Vector3.zero;
+
+        transform.position = smoothedPos + shakeOffset;
+    }
+
+    public void Shake(float intensity)
+    {
+        shakeIntensity = Mathf.Max(shakeIntensity, intensity);
     }
 
     private Vector2 GetBlobCenter()
@@ -90,9 +104,7 @@ public class CameraFollower : MonoBehaviour
 
         Vector2 center = Vector2.zero;
         foreach (var particle in particles)
-        {
             center += (Vector2)particle.transform.position;
-        }
 
         return center / particles.Length;
     }
