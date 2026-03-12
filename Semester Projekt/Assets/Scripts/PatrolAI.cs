@@ -477,7 +477,7 @@ public class PatrolAI : MonoBehaviour
         float currentAlertDuration = isInLockdown ? lockdownAlertDuration : alertDuration;
         return Mathf.Clamp01(alertTimer / currentAlertDuration);
     }
-
+    
     void OnDrawGizmos()
     {
         if (leftPoint == null || rightPoint == null) return;
