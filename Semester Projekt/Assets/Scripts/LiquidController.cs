@@ -9,6 +9,12 @@ public class LiquidController : MonoBehaviour
     private PatrolAI controlledAI;
     private CameraFollower cameraFollower;
 
+    private WaterHeatingMinigameStation nearbyHeater;
+    private WaterHeaterMinigameUI heaterUI;
+    private WireConnectStation nearbyWireStation;
+    private WireConnectMinigameUI wireUI;
+    private bool isInMinigame = false;
+
     [Header("Keyboard Control")]
     public float moveForce = 120f;
     public float cohesionForce = 40f;
@@ -24,6 +30,10 @@ public class LiquidController : MonoBehaviour
 
     [Header("Pipe Settings")]
     public KeyCode pipeEnterKey = KeyCode.F;
+
+    [Header("Minigame Settings")]
+    public KeyCode minigameInteractKey = KeyCode.F;
+    public KeyCode minigameHeatKey = KeyCode.Space;
 
     [Header("Fall Impact Settings")]
     public float fallThreshold = 3f;
@@ -52,13 +62,27 @@ public class LiquidController : MonoBehaviour
         pipeUI = FindObjectOfType<PipeUI>();
         cameraFollower = FindObjectOfType<CameraFollower>();
 
+        heaterUI = FindObjectOfType<WaterHeaterMinigameUI>();
+        if (heaterUI == null)
+        {
+            var go = new GameObject("HeaterMinigameUI", typeof(RectTransform));
+            heaterUI = go.AddComponent<WaterHeaterMinigameUI>();
+        }
+
+        wireUI = FindObjectOfType<WireConnectMinigameUI>();
+        if (wireUI == null)
+        {
+            var go = new GameObject("WireConnectMinigameUI", typeof(RectTransform));
+            wireUI = go.AddComponent<WireConnectMinigameUI>();
+        }
+
         previousBlobY = GetBlobCenter().y;
     }
 
     void FixedUpdate()
     {
         if (solidForm != null && solidForm.GetIsDead()) return;
-        if (isInPipe) return;
+        if (isInPipe || isInMinigame) return;
 
         if (controlledAI != null)
             HandleAIControl();
@@ -69,7 +93,11 @@ public class LiquidController : MonoBehaviour
     void Update()
     {
         if (solidForm != null && solidForm.GetIsDead()) return;
-        if (isInPipe) return;
+
+        HandleMinigameDetection();
+        HandleMinigameInput();
+
+        if (isInPipe || isInMinigame) return;
 
         HandleJump();
         HandlePipeDetection();
@@ -289,8 +317,124 @@ public class LiquidController : MonoBehaviour
         }
     }
 
+    void HandleMinigameDetection()
+    {
+        if (isInMinigame)
+            return;
+
+        WaterHeatingMinigameStation[] hstations = FindObjectsOfType<WaterHeatingMinigameStation>();
+        nearbyHeater = null;
+        float closest1 = float.MaxValue;
+
+        foreach (var station in hstations)
+        {
+            if (station.IsCompleted) continue;
+
+            if (station.IsPlayerNearby(solidForm))
+            {
+                float d = Vector2.Distance(GetBlobCenter(), station.transform.position);
+                if (d < closest1)
+                {
+                    closest1 = d;
+                    nearbyHeater = station;
+                }
+            }
+        }
+
+        WireConnectStation[] wstations = FindObjectsOfType<WireConnectStation>();
+        nearbyWireStation = null;
+        float closest2 = float.MaxValue;
+
+        foreach (var station in wstations)
+        {
+            if (station.IsCompleted) continue;
+
+            if (station.IsPlayerNearby(solidForm))
+            {
+                float d = Vector2.Distance(GetBlobCenter(), station.transform.position);
+                if (d < closest2)
+                {
+                    closest2 = d;
+                    nearbyWireStation = station;
+                }
+            }
+        }
+
+        if (nearbyHeater != null)
+            pipeUI?.ShowPrompt("Press F to Start Heater Minigame");
+        else if (nearbyWireStation != null)
+            pipeUI?.ShowPrompt("Press F to Start Wire Minigame");
+        else if (!isInPipe)
+            pipeUI?.HidePrompt();
+    }
+
+    void HandleMinigameInput()
+    {
+        if (isInMinigame)
+        {
+            if (nearbyHeater != null)
+            {
+                bool heating = Input.GetMouseButton(0);
+                nearbyHeater.SetHeatingInput(heating);
+
+                if (!nearbyHeater.IsRunning)
+                {
+                    isInMinigame = false;
+                    nearbyHeater = null;
+                    pipeUI?.HidePrompt();
+                }
+            }
+            else if (nearbyWireStation != null)
+            {
+                if (!nearbyWireStation.IsRunning)
+                {
+                    isInMinigame = false;
+                    nearbyWireStation = null;
+                    pipeUI?.HidePrompt();
+                }
+            }
+            else
+            {
+                isInMinigame = false;
+            }
+
+            return;
+        }
+
+        if (!Input.GetKeyDown(minigameInteractKey))
+            return;
+
+        if ((nearbyHeater == null && nearbyWireStation == null) || controlledAI != null)
+            return;
+
+        if (nearbyHeater != null)
+        {
+            bool started = nearbyHeater.TryStart(solidForm, heaterUI);
+            if (started)
+            {
+                isInMinigame = true;
+                pipeUI?.HidePrompt();
+            }
+        }
+        else if (nearbyWireStation != null)
+        {
+            bool started = nearbyWireStation.TryStart(solidForm, wireUI);
+            if (started)
+            {
+                isInMinigame = true;
+                pipeUI?.HidePrompt();
+            }
+        }
+    }
+
     void HandlePipeDetection()
     {
+        if (nearbyHeater != null || nearbyWireStation != null)
+        {
+            nearbyPipe = null;
+            return;
+        }
+
         if (solidForm == null || solidForm.GetCurrentState() != MatterState.Liquid)
         {
             nearbyPipe = null;
@@ -306,7 +450,7 @@ public class LiquidController : MonoBehaviour
         {
             if (pipe.IsPlayerNearby())
             {
-                float dist = Vector2.Distance(transform.position, pipe.transform.position);
+                float dist = Vector2.Distance(GetBlobCenter(), pipe.transform.position);
                 if (dist < closestDist)
                 {
                     closestDist = dist;
@@ -323,6 +467,8 @@ public class LiquidController : MonoBehaviour
 
     void HandlePipeInput()
     {
+        if (nearbyHeater != null || nearbyWireStation != null) return;
+
         if (!Input.GetKeyDown(pipeEnterKey)) return;
         if (nearbyPipe == null || solidForm == null) return;
         if (solidForm.GetCurrentState() != MatterState.Liquid) return;

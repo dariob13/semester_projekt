@@ -48,16 +48,12 @@ public class PipeUI : MonoBehaviour
             }
         }
 
-        // Setup
         if (canvasGroup != null)
-        {
             canvasGroup.alpha = 0f;
-        }
 
         if (promptText != null)
         {
             promptText.text = promptMessage;
-            // Ensure text is visible
             promptText.color = new Color(1f, 1f, 1f, 1f);
         }
 
@@ -67,18 +63,25 @@ public class PipeUI : MonoBehaviour
     void Update()
     {
         if (canvasGroup != null)
-        {
             canvasGroup.alpha = Mathf.Lerp(canvasGroup.alpha, targetAlpha, Time.deltaTime * fadeSpeed);
-        }
     }
 
     public void ShowPrompt()
     {
+        ShowPrompt(promptMessage);
+    }
+
+    public void ShowPrompt(string customMessage)
+    {
+        if (promptText != null)
+            promptText.text = customMessage;
+
         if (!wasPromptVisible)
         {
             wasPromptVisible = true;
             Debug.Log("Prompt shown");
         }
+
         targetAlpha = 1f;
     }
 
@@ -89,6 +92,7 @@ public class PipeUI : MonoBehaviour
             wasPromptVisible = false;
             Debug.Log("Prompt hidden");
         }
+
         targetAlpha = 0f;
     }
 
@@ -99,6 +103,9 @@ public class PipeUI : MonoBehaviour
 
     private IEnumerator ShowMessageTemporarily(string message)
     {
+        if (promptText == null)
+            yield break;
+
         string originalText = promptText.text;
         promptText.text = message;
 

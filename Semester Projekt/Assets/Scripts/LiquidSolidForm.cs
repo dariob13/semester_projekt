@@ -31,6 +31,12 @@ public class LiquidSolidForm : MonoBehaviour
     public float heatDeathTime = 3f;
     public HeatDamageUI heatDamageUI;
 
+    [Header("Energy Settings")]
+    public float maxEnergy = 100f;
+    public float transformEnergyCost = 20f;
+    public EnergyUI energyUI;
+    private float currentEnergy;
+
     private LiquidSimulation simulation;
     private List<LiquidParticle> particles = new List<LiquidParticle>();
     private Vector2 blobCenter;
@@ -54,12 +60,20 @@ public class LiquidSolidForm : MonoBehaviour
     void Start()
     {
         InitializeSimulation();
-
+        
         // Try to find HeatDamageUI if not assigned
         if (heatDamageUI == null)
         {
             heatDamageUI = FindObjectOfType<HeatDamageUI>();
         }
+
+        // Energy setup
+        if (energyUI == null)
+        {
+            energyUI = FindObjectOfType<EnergyUI>();
+        }
+        currentEnergy = Mathf.Clamp(maxEnergy, 0f, maxEnergy);
+        UpdateEnergyUI();
     }
 
     void InitializeSimulation()
@@ -130,6 +144,11 @@ public class LiquidSolidForm : MonoBehaviour
         if (Input.GetKeyDown(stateChangeKey) && stateChangeCooldown <= 0f)
         {
             if (simulation == null) return;
+            if (currentEnergy < transformEnergyCost || currentEnergy <= 0f)
+            {
+                Debug.Log("Not enough energy to transform.");
+                return;
+            }
 
             switch (currentState)
             {
@@ -143,6 +162,8 @@ public class LiquidSolidForm : MonoBehaviour
                     currentState = MatterState.Liquid;
                     break;
             }
+
+            ConsumeEnergy(transformEnergyCost);
 
             stateChangeCooldown = STATE_CHANGE_DELAY;
             simulation.SetMatterState(currentState);
@@ -469,10 +490,26 @@ public class LiquidSolidForm : MonoBehaviour
         }
     }
 
+    private void ConsumeEnergy(float amount)
+    {
+        currentEnergy = Mathf.Max(0f, currentEnergy - Mathf.Max(0f, amount));
+        UpdateEnergyUI();
+    }
+
+    private void UpdateEnergyUI()
+    {
+        if (energyUI != null)
+        {
+            float pct = maxEnergy > 0f ? currentEnergy / maxEnergy : 0f;
+            energyUI.UpdateEnergy(pct);
+        }
+    }
+
     public MatterState GetCurrentState() => currentState;
     public bool GetIsSolid() => currentState == MatterState.Solid;
     public bool GetIsGas() => currentState == MatterState.Gas;
     public bool GetIsDead() => isDead;
     public float GetGasGravityMultiplier() => gasGravityMultiplier;
     public float GetGasMoveSpeedMultiplier() => gasMoveSpeedMultiplier;
+    public float GetCurrentEnergy() => currentEnergy;
 }
