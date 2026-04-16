@@ -13,6 +13,10 @@ public class Door : MonoBehaviour
     public Color closedColor = new Color(0.5f, 0.3f, 0.1f, 1f);
     public Color openColor = new Color(0.3f, 0.6f, 0.3f, 0.4f);
 
+    [Header("Collision Settings")]
+    public bool autoAssignCollisionLayer = true;
+    public string collisionLayerName = "Environment";
+
     private bool isOpen = false;
     private bool isMoving = false;
     private Vector3 closedPosition;
@@ -35,6 +39,22 @@ public class Door : MonoBehaviour
         doorCollider = GetComponent<BoxCollider2D>();
         if (doorCollider == null)
             doorCollider = gameObject.AddComponent<BoxCollider2D>();
+
+        // Door must physically block liquid/solid particles when closed
+        doorCollider.isTrigger = false;
+
+        if (autoAssignCollisionLayer)
+        {
+            int collisionLayer = LayerMask.NameToLayer(collisionLayerName);
+            if (collisionLayer >= 0)
+            {
+                gameObject.layer = collisionLayer;
+            }
+            else
+            {
+                Debug.LogWarning($"Door '{name}': collision layer '{collisionLayerName}' not found.");
+            }
+        }
 
         closedPosition = transform.position;
         openPosition = closedPosition + GetSlideVector() * slideDistance;
