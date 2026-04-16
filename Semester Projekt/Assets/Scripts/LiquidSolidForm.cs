@@ -71,6 +71,11 @@ public class LiquidSolidForm : MonoBehaviour
         if (energyUI == null)
         {
             energyUI = FindObjectOfType<EnergyUI>();
+            if (energyUI == null)
+            {
+                var energyObj = new GameObject("EnergyUI", typeof(RectTransform));
+                energyUI = energyObj.AddComponent<EnergyUI>();
+            }
         }
         currentEnergy = Mathf.Clamp(maxEnergy, 0f, maxEnergy);
         UpdateEnergyUI();

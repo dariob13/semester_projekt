@@ -19,6 +19,13 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        if (FindObjectOfType<AlertUI>() == null)
+        {
+            GameObject alertObj = new GameObject("AlertUI");
+            alertObj.AddComponent<AlertUI>();
+            Debug.Log("GameManager: Auto-created AlertUI.");
+        }
+
         allAIs = FindObjectsOfType<PatrolAI>();
 
         // Subscribe all AIs to detection event
@@ -32,13 +39,9 @@ public class GameManager : MonoBehaviour
 
     void OnAISpottedPlayer()
     {
-        // Get the player and kill them
-        LiquidSolidForm player = FindObjectOfType<LiquidSolidForm>();
-        if (player != null && !player.GetIsDead())
-        {
-            player.ForceKill();
-            Debug.Log("GAME OVER - Spotted by AI!");
-        }
+        // AI handles kill timing via its own alert timer.
+        // Keep this callback for global hooks/logging only.
+        Debug.Log("Player detected by AI.");
     }
 
     void OnDestroy()

@@ -136,9 +136,17 @@ public class LiquidSimulation : MonoBehaviour
 
         ApplyViscosity();
 
-        LayerMask collisionMask = currentState == MatterState.Solid
-            ? (environmentLayer | movableLayer)
-            : environmentLayer;
+        LayerMask collisionMask = environmentLayer;
+
+        // Liquid and solid should collide with both environment and movable layers.
+        if (currentState == MatterState.Liquid || currentState == MatterState.Solid)
+        {
+            collisionMask = environmentLayer | movableLayer;
+
+            // Fallback in case layers were not assigned in inspector.
+            if (collisionMask == 0)
+                collisionMask = Physics2D.DefaultRaycastLayers;
+        }
 
         // Gas has reversed/reduced gravity
         float currentGravity = gravity;
@@ -161,7 +169,12 @@ public class LiquidSimulation : MonoBehaviour
                 particle.velocity.x *= (1f - groundFriction * Time.fixedDeltaTime);
             }
 
-            particle.UpdatePhysics(Time.fixedDeltaTime);
+            // Two sub-steps reduce tunneling through colliders at higher velocity.
+            float subStep = Time.fixedDeltaTime * 0.5f;
+            particle.UpdatePhysics(subStep);
+            particle.CheckEnvironmentCollision(collisionMask);
+
+            particle.UpdatePhysics(subStep);
             particle.CheckEnvironmentCollision(collisionMask);
         }
 

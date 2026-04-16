@@ -12,8 +12,8 @@ public class EnergyUI : MonoBehaviour
     public CanvasGroup canvasGroup;
 
     [Header("Visuals")]
-    public Color fullColor = new Color(0.2f, 0.9f, 1f, 1f);
-    public Color emptyColor = new Color(1f, 0.3f, 0.3f, 1f);
+    public Color fullColor = new Color(0.2f, 1f, 0.2f, 1f);
+    public Color emptyColor = new Color(1f, 0.1f, 0.1f, 1f);
     public float fadeSpeed = 6f;
 
     private float targetAlpha = 1f;
@@ -102,12 +102,14 @@ public class EnergyUI : MonoBehaviour
         GameObject bgObj = new GameObject("EnergyBg", typeof(RectTransform), typeof(Image));
         bgObj.transform.SetParent(transform, false);
         var bgRT = bgObj.GetComponent<RectTransform>();
-        bgRT.anchorMin = new Vector2(0.80f, 0.93f);
-        bgRT.anchorMax = new Vector2(0.96f, 0.97f);
-        bgRT.offsetMin = new Vector2(-4f, -4f);
-        bgRT.offsetMax = new Vector2(4f, 4f);
+        bgRT.anchorMin = new Vector2(1f, 1f);
+        bgRT.anchorMax = new Vector2(1f, 1f);
+        bgRT.pivot = new Vector2(1f, 1f);
+        bgRT.sizeDelta = new Vector2(220f, 28f);
+        bgRT.anchoredPosition = new Vector2(-24f, -20f);
         barBackground = bgObj.GetComponent<Image>();
         barBackground.color = new Color(0f, 0f, 0f, 0.7f);
+        barBackground.raycastTarget = false;
 
         // Fill
         GameObject fillObj = new GameObject("EnergyFill", typeof(RectTransform), typeof(Image));
@@ -123,5 +125,9 @@ public class EnergyUI : MonoBehaviour
         barFill.fillMethod = Image.FillMethod.Horizontal;
         barFill.fillOrigin = (int)Image.OriginHorizontal.Left;
         barFill.color = fullColor;
+        barFill.raycastTarget = false;
+
+        // Start full so it is visible even before first update call
+        barFill.fillAmount = 1f;
     }
 }
