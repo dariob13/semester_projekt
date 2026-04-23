@@ -64,19 +64,21 @@ public class LiquidSolidForm : MonoBehaviour
         // Try to find HeatDamageUI if not assigned
         if (heatDamageUI == null)
         {
-            heatDamageUI = FindObjectOfType<HeatDamageUI>();
+            heatDamageUI = HeatDamageUI.GetOrCreate();
         }
 
-        // Energy setup
-        if (energyUI == null)
+        if (heatDamageUI != null && !heatDamageUI.gameObject.activeSelf)
         {
-            energyUI = FindObjectOfType<EnergyUI>();
-            if (energyUI == null)
-            {
-                var energyObj = new GameObject("EnergyUI", typeof(RectTransform));
-                energyUI = energyObj.AddComponent<EnergyUI>();
-            }
+            heatDamageUI.gameObject.SetActive(true);
         }
+
+        // Energy setup: gameplay energy remains active, but HUD is intentionally hidden.
+        if (energyUI == null)
+            energyUI = FindObjectOfType<EnergyUI>();
+
+        if (energyUI != null)
+            energyUI.gameObject.SetActive(false);
+
         currentEnergy = Mathf.Clamp(maxEnergy, 0f, maxEnergy);
         UpdateEnergyUI();
     }

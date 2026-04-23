@@ -6,7 +6,6 @@ public class LiquidController : MonoBehaviour
     private LiquidSolidForm solidForm;
     private Pipe nearbyPipe;
     private PipeUI pipeUI;
-    private PatrolAI controlledAI;
     private CameraFollower cameraFollower;
 
     private WaterHeatingMinigameStation nearbyHeater;
@@ -23,10 +22,6 @@ public class LiquidController : MonoBehaviour
     [Header("Jump Settings")]
     public float jumpForce = 200f;
     public float jumpCooldown = 0.5f;
-
-    [Header("AI Control")]
-    public KeyCode takeControlKey = KeyCode.Q;
-    public float controlRadius = 1f;
 
     [Header("Pipe Settings")]
     public KeyCode pipeEnterKey = KeyCode.F;
@@ -84,10 +79,7 @@ public class LiquidController : MonoBehaviour
         if (solidForm != null && solidForm.GetIsDead()) return;
         if (isInPipe || isInMinigame) return;
 
-        if (controlledAI != null)
-            HandleAIControl();
-        else
-            HandleKeyboardControl();
+        HandleKeyboardControl();
     }
 
     void Update()
@@ -102,7 +94,6 @@ public class LiquidController : MonoBehaviour
         HandleJump();
         HandlePipeDetection();
         HandlePipeInput();
-        HandleAIControlInput();
         TrackFall();
     }
 
@@ -211,69 +202,6 @@ public class LiquidController : MonoBehaviour
         simulation.ApplyCohesion(cohesionForce);
     }
 
-    void HandleAIControl()
-    {
-        Vector2 direction = Vector2.zero;
-
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
-            direction += Vector2.up;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
-            direction += Vector2.down;
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
-            direction += Vector2.left;
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
-            direction += Vector2.right;
-
-        controlledAI.TakeControl(direction.normalized);
-
-        if (controlledAI.IsKnockedOut())
-        {
-            controlledAI = null;
-            Debug.Log("*** AI CONTROL RELEASED - GUARD KNOCKED OUT ***");
-        }
-    }
-
-    void HandleAIControlInput()
-    {
-        if (!Input.GetKeyDown(takeControlKey)) return;
-
-        if (controlledAI == null)
-        {
-            Vector2 blobCenter = GetBlobCenter();
-
-            PatrolAI[] allGuards = FindObjectsOfType<PatrolAI>();
-            PatrolAI closestGuard = null;
-            float closestDist = controlRadius;
-
-            foreach (var guard in allGuards)
-            {
-                if (guard.IsKnockedOut()) continue;
-
-                float dist = Vector2.Distance(blobCenter, guard.transform.position);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    closestGuard = guard;
-                }
-            }
-
-            if (closestGuard != null)
-            {
-                controlledAI = closestGuard;
-                Debug.Log($"*** TAKING CONTROL OF {closestGuard.name} (dist: {closestDist:F2}m) ***");
-            }
-            else
-            {
-                Debug.Log($"*** NO GUARD IN RANGE ({controlRadius}m) ***");
-            }
-        }
-        else
-        {
-            controlledAI = null;
-            Debug.Log("*** AI CONTROL RELEASED ***");
-        }
-    }
-
     private Vector2 GetBlobCenter()
     {
         if (solidForm == null) return transform.position;
@@ -292,7 +220,6 @@ public class LiquidController : MonoBehaviour
     {
         jumpTimer -= Time.deltaTime;
 
-        if (controlledAI != null) return;
         if (solidForm == null || !solidForm.GetIsSolid()) return;
 
         if ((Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) && jumpTimer <= 0f)
@@ -404,7 +331,7 @@ public class LiquidController : MonoBehaviour
         if (!Input.GetKeyDown(minigameInteractKey))
             return;
 
-        if ((nearbyHeater == null && nearbyWireStation == null) || controlledAI != null)
+        if (nearbyHeater == null && nearbyWireStation == null)
             return;
 
         if (nearbyHeater != null)
@@ -498,22 +425,5 @@ public class LiquidController : MonoBehaviour
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
-
-        Gizmos.color = new Color(0f, 1f, 1f, 0.2f);
-        Vector2 center = GetBlobCenter();
-        DrawCircle(center, controlRadius, 32);
-    }
-
-    private void DrawCircle(Vector2 center, float radius, int segments)
-    {
-        float angleStep = 360f / segments;
-        Vector3 prev = center + new Vector2(radius, 0);
-        for (int i = 1; i <= segments; i++)
-        {
-            float angle = i * angleStep * Mathf.Deg2Rad;
-            Vector3 next = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
-            Gizmos.DrawLine(prev, next);
-            prev = next;
-        }
     }
 }

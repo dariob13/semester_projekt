@@ -14,8 +14,7 @@ public class PatrolAI : MonoBehaviour
     public float alertDuration = 3f;
     public LayerMask obstacleLayer;
 
-    [Header("Control Settings")]
-    public float controlDuration = 5f;
+    [Header("State Settings")]
     public float knockoutDuration = 15f;
 
     [Header("Lockdown Settings")]
@@ -27,7 +26,6 @@ public class PatrolAI : MonoBehaviour
     [Header("Visual Settings")]
     public Color normalColor = new Color(1f, 0.5f, 0f, 0.8f);
     public Color alertColor = new Color(1f, 0f, 0f, 1f);
-    public Color controlledColor = new Color(0f, 1f, 1f, 1f);
     public Color knockoutColor = new Color(0.3f, 0.3f, 0.3f, 0.8f);
     public Color lockdownColor = new Color(1f, 0f, 1f, 1f);
 
@@ -47,10 +45,6 @@ public class PatrolAI : MonoBehaviour
     // State management
     private AIState currentState = AIState.Patrol;
     private float stateTimer = 0f;
-
-    // Control
-    private bool isBeingControlled = false;
-    private Vector2 controlInput = Vector2.zero;
 
     // Lockdown
     private bool isInLockdown = false;
@@ -199,13 +193,6 @@ public class PatrolAI : MonoBehaviour
                 DetectKnockedOutGuards();
                 break;
 
-            case AIState.Controlled:
-                UpdateControlled();
-                stateTimer -= Time.deltaTime;
-                if (stateTimer <= 0)
-                    EnterKnockedOut();
-                break;
-
             case AIState.KnockedOut:
                 stateTimer -= Time.deltaTime;
                 if (stateTimer <= 0)
@@ -244,18 +231,6 @@ public class PatrolAI : MonoBehaviour
 
         if (spriteRenderer != null)
             spriteRenderer.flipX = !isMovingRight;
-    }
-
-    void UpdateControlled()
-    {
-        Vector2 moveDir = new Vector2(controlInput.x, 0).normalized;
-        if (Mathf.Abs(moveDir.x) > 0.1f)
-        {
-            transform.position += new Vector3(moveDir.x * patrolSpeed * 1.5f * Time.deltaTime, 0, 0);
-
-            if (spriteRenderer != null)
-                spriteRenderer.flipX = moveDir.x < 0;
-        }
     }
 
     void DetectPlayer()
@@ -392,21 +367,6 @@ public class PatrolAI : MonoBehaviour
         }
     }
 
-    public void TakeControl(Vector2 input)
-    {
-        if (currentState == AIState.KnockedOut || currentState == AIState.Lockdown)
-            return;
-
-        if (currentState != AIState.Controlled)
-        {
-            currentState = AIState.Controlled;
-            stateTimer = controlDuration;
-            Debug.Log($"*** CONTROLLING {gameObject.name}! ***");
-        }
-
-        controlInput = input;
-    }
-
     void EnterKnockedOut()
     {
         currentState = AIState.KnockedOut;
@@ -462,11 +422,7 @@ public class PatrolAI : MonoBehaviour
             spriteRenderer.color = normalColor;
     }
 
-    void UpdateColors()
-    {
-        if (currentState == AIState.Controlled && spriteRenderer != null)
-            spriteRenderer.color = controlledColor;
-    }
+    void UpdateColors() {}
 
     private Vector2 RotateVector(Vector2 vector, float angleDegrees)
     {
@@ -481,7 +437,6 @@ public class PatrolAI : MonoBehaviour
     }
 
     public AIState GetCurrentState() => currentState;
-    public bool IsControlled() => currentState == AIState.Controlled;
     public bool IsKnockedOut() => currentState == AIState.KnockedOut;
     public bool IsAlerting() => hasDetected;
 
