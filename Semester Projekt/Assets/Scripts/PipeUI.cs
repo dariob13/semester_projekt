@@ -12,6 +12,12 @@ public class PipeUI : MonoBehaviour
     public float fadeSpeed = 5f;
     public string promptMessage = "Press F to Enter Pipe";
 
+    [Header("Text Style")]
+    public bool useOutline = true;
+    public Color outlineColor = Color.black;
+    [Range(0f, 1f)]
+    public float outlineWidth = 0.2f;
+
     private float targetAlpha = 0f;
     private Canvas canvas;
     private bool wasPromptVisible = false;
@@ -55,6 +61,15 @@ public class PipeUI : MonoBehaviour
         {
             promptText.text = promptMessage;
             promptText.color = new Color(1f, 1f, 1f, 1f);
+            if (useOutline)
+            {
+                promptText.outlineColor = outlineColor;
+                promptText.outlineWidth = outlineWidth;
+            }
+            else
+            {
+                promptText.outlineWidth = 0f;
+            }
         }
 
         Debug.Log("PipeUI initialized successfully");

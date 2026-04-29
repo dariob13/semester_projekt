@@ -21,6 +21,10 @@ public class CameraFollower : MonoBehaviour
     public float minY = -10f;
     public float maxY = 10f;
 
+    [Header("Vertical Limit")]
+    public bool useMinYLimit = true;
+    public float minYLimit = -2f;
+
     [Header("Camera Shake")]
     public float shakeDecaySpeed = 5f;
 
@@ -41,13 +45,16 @@ public class CameraFollower : MonoBehaviour
             return;
         }
 
+        // Ensure vertical follow even if the inspector had it disabled.
+        followY = true;
+
         particles = player.GetComponentsInChildren<LiquidParticle>();
 
         // Snap to blob immediately on start
         Vector2 startBlobCenter = GetBlobCenter();
         transform.position = new Vector3(
             startBlobCenter.x + xOffset,
-            startBlobCenter.y + yOffset,
+            Mathf.Max(startBlobCenter.y + yOffset, useMinYLimit ? minYLimit : float.NegativeInfinity),
             -10f
         );
     }
@@ -68,6 +75,9 @@ public class CameraFollower : MonoBehaviour
 
         if (followY)
             targetPos.y = blobCenter.y + yOffset;
+
+        if (useMinYLimit)
+            targetPos.y = Mathf.Max(targetPos.y, minYLimit);
 
         targetPos.z = -10f;
 
