@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 public class LiquidSimulation : MonoBehaviour
 {
@@ -49,7 +50,38 @@ public class LiquidSimulation : MonoBehaviour
     void Start()
     {
         initialSpringStrength = springStrength;
+        EnsureEnvironmentMask();
         CreateLiquidBlob();
+    }
+
+    private void EnsureEnvironmentMask()
+    {
+        if (environmentLayer == 0)
+            environmentLayer = Physics2D.DefaultRaycastLayers;
+
+        environmentLayer |= BuildTilemapLayerMask();
+    }
+
+    private LayerMask BuildTilemapLayerMask()
+    {
+        int mask = 0;
+        TilemapCollider2D[] tilemaps = FindObjectsOfType<TilemapCollider2D>();
+        for (int i = 0; i < tilemaps.Length; i++)
+        {
+            int layer = tilemaps[i].gameObject.layer;
+            if (layer >= 0)
+                mask |= 1 << layer;
+        }
+
+        CompositeCollider2D[] composites = FindObjectsOfType<CompositeCollider2D>();
+        for (int i = 0; i < composites.Length; i++)
+        {
+            int layer = composites[i].gameObject.layer;
+            if (layer >= 0)
+                mask |= 1 << layer;
+        }
+
+        return mask;
     }
 
     void CreateLiquidBlob()
