@@ -190,17 +190,23 @@ public class LiquidSolidForm : MonoBehaviour
                 Debug.Log("State: SOLID - Can push objects, can jump");
                 simulation.springStrength *= 1.5f;
                 solidRadius = initialSolidRadius * solidBlobExpansion;
+                if (AudioController.Instance != null)
+                    AudioController.Instance.PlaySolidStateSound();
                 break;
 
             case MatterState.Liquid:
                 Debug.Log("State: LIQUID - Flowing freely");
                 solidRadius = initialSolidRadius;
+                if (AudioController.Instance != null)
+                    AudioController.Instance.PlayWaterStateSound();
                 break;
 
             case MatterState.Gas:
                 Debug.Log("State: GAS - Slow and floaty, avoid hot zones!");
                 simulation.springStrength *= 0.5f;
                 solidRadius = initialSolidRadius * gasBlobExpansion;
+                if (AudioController.Instance != null)
+                    AudioController.Instance.PlayGasStateSound();
                 break;
         }
     }

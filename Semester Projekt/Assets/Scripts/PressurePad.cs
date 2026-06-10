@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[RequireComponent(typeof(SpriteRenderer), typeof(BoxCollider2D))]
 public class PressurePad : MonoBehaviour
 {
     [Header("Pressure Pad Settings")]
@@ -11,23 +12,32 @@ public class PressurePad : MonoBehaviour
     public Color inactiveColor = new Color(0.6f, 0.4f, 0.1f, 1f);
     public Color activeColor = new Color(0.1f, 1f, 0.3f, 1f);
 
+    [SerializeField] private SpriteRenderer spriteRenderer;
+
     private bool isActivated = false;
-    private SpriteRenderer spriteRenderer;
     private BoxCollider2D padCollider;
+
+    void OnValidate()
+    {
+        if (spriteRenderer == null)
+            spriteRenderer = GetComponent<SpriteRenderer>();
+    }
 
     void Start()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer == null)
-            spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+            spriteRenderer = GetComponent<SpriteRenderer>();
 
-        spriteRenderer.sprite = CreatePadSprite();
-        spriteRenderer.color = inactiveColor;
-        spriteRenderer.sortingOrder = 0;
+        if (spriteRenderer != null)
+        {
+            if (spriteRenderer.sprite == null)
+                Debug.LogWarning("PressurePad is missing a Sprite on its SpriteRenderer.", this);
+
+            spriteRenderer.color = inactiveColor;
+            spriteRenderer.sortingOrder = 0;
+        }
 
         padCollider = GetComponent<BoxCollider2D>();
-        if (padCollider == null)
-            padCollider = gameObject.AddComponent<BoxCollider2D>();
 
         padCollider.isTrigger = true;
         padCollider.size = new Vector2(1f, detectionHeight);
@@ -99,32 +109,6 @@ public class PressurePad : MonoBehaviour
     {
         if (spriteRenderer != null)
             spriteRenderer.color = isActivated ? activeColor : inactiveColor;
-    }
-
-    private Sprite CreatePadSprite()
-    {
-        int w = 32;
-        int h = 8;
-        Texture2D texture = new Texture2D(w, h);
-        texture.filterMode = FilterMode.Point;
-        Color[] pixels = new Color[w * h];
-
-        for (int y = 0; y < h; y++)
-        {
-            for (int x = 0; x < w; x++)
-            {
-                // Outer border
-                bool border = (x == 0 || x == w - 1 || y == 0 || y == h - 1);
-                // Arrow markers in center
-                bool marker = (y >= 2 && y <= 5 && (x == 10 || x == 15 || x == 21));
-
-                pixels[y * w + x] = (border || marker) ? Color.white : new Color(0.8f, 0.8f, 0.8f, 1f);
-            }
-        }
-
-        texture.SetPixels(pixels);
-        texture.Apply();
-        return Sprite.Create(texture, new Rect(0, 0, w, h), new Vector2(0.5f, 0f), 16f);
     }
 
     void OnDrawGizmos()
