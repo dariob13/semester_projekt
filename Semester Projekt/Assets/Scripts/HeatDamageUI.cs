@@ -83,11 +83,6 @@ public class HeatDamageUI : MonoBehaviour
         {
             canvasGroup.alpha = Mathf.Lerp(canvasGroup.alpha, targetAlpha, Time.deltaTime * fadeSpeed);
         }
-
-        if (isDeathScreenActive && Input.GetKeyDown(KeyCode.G))
-        {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-        }
     }
 
     public void UpdateHeatBar(float heatPercent)
@@ -147,22 +142,24 @@ public class HeatDamageUI : MonoBehaviour
         if (deathBackdrop != null)
             deathBackdrop.color = new Color(0f, 0f, 0f, 0.65f);
 
-        EnsureDeathTexts();
-
         if (gameOverText != null)
-        {
-            gameOverText.text = "GAME OVER";
-            gameOverText.gameObject.SetActive(true);
-        }
+            gameOverText.gameObject.SetActive(false);
 
         if (restartText != null)
-        {
-            restartText.text = "PRESS G TO RESTART";
-            restartText.gameObject.SetActive(true);
-        }
+            restartText.gameObject.SetActive(false);
+
+        Death.GetOrCreate().ShowDeath();
 
         isDeathScreenActive = true;
-        targetAlpha = 1f;
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
+
+        targetAlpha = 0f;
     }
 
     private void EnsureDeathTexts()

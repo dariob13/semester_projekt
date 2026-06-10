@@ -10,27 +10,19 @@ using UnityEngine.InputSystem.UI;
 using UnityEditor;
 #endif
 
-public class WinCondition : MonoBehaviour
+public class PauseMenu : MonoBehaviour
 {
-    [Header("Server Settings")]
-    public int targetServerCount = 3;
-
     [Header("UI Settings")]
     public bool buildRuntimeUI = true;
-    public bool showCursorOnWin = true;
-#if UNITY_EDITOR
-    public SceneAsset mainMenuScene;
-#endif
-    public string mainMenuSceneName = "MainMenu";
-    public int mainMenuSceneIndex = 0;
 
     [Header("UI References")]
-    public Canvas winCanvas;
+    public Canvas pauseCanvas;
     public RectTransform root;
     public CanvasGroup canvasGroup;
     public TextMeshProUGUI titleText;
-    public TextMeshProUGUI timeText;
-    public Button mainMenuButton;
+    public Button continueButton;
+    public Button restartButton;
+    public Button quitButton;
 
     [Header("Colors")]
     public Color accentColor = new Color(0.2f, 0.85f, 1f, 1f);
@@ -41,96 +33,45 @@ public class WinCondition : MonoBehaviour
     public Color backdropColor = new Color(0f, 0f, 0f, 0.6f);
     public Color textColor = Color.white;
 
-    private Server[] servers;
-    private int destroyedCount;
-    private int requiredCount;
-    private float startTime;
-    private bool isComplete;
-
-#if UNITY_EDITOR
-    void OnValidate()
-    {
-        if (mainMenuScene != null)
-            mainMenuSceneName = mainMenuScene.name;
-    }
-#endif
+    private bool isPaused;
 
     void Start()
     {
-        startTime = Time.time;
-        servers = FindObjectsOfType<Server>();
-        requiredCount = Mathf.Clamp(targetServerCount, 1, Mathf.Max(1, servers.Length));
-
-        foreach (var server in servers)
-            server.OnServerDestroyed += OnServerDestroyed;
-
         if (buildRuntimeUI)
             EnsureRuntimeUI();
 
-        HideWinUI();
+        HidePauseUI();
     }
 
-    void OnDestroy()
+    void Update()
     {
-        if (servers == null) return;
-        foreach (var server in servers)
-            server.OnServerDestroyed -= OnServerDestroyed;
-    }
-
-    private void OnServerDestroyed()
-    {
-        destroyedCount++;
-
-        if (isComplete)
-            return;
-
-        if (destroyedCount >= requiredCount)
-            CompleteGame();
-    }
-
-    private void CompleteGame()
-    {
-        isComplete = true;
-        ShowWinUI();
-        UpdateTimeText();
-
-        if (showCursorOnWin)
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
+            if (isPaused)
+                Resume();
+            else
+                Pause();
         }
     }
 
-    private void UpdateTimeText()
+    private void Pause()
     {
-        if (timeText == null)
-            return;
-
-        float elapsed = Time.time - startTime;
-        var span = System.TimeSpan.FromSeconds(elapsed);
-        int minutes = (int)span.TotalMinutes;
-        int tenths = span.Milliseconds / 100;
-        timeText.text = $"Time: {minutes:00}:{span.Seconds:00}.{tenths}";
+        isPaused = true;
+        Time.timeScale = 0f;
+        ShowPauseUI();
     }
 
-    private void ShowWinUI()
+    private void Resume()
     {
-        if (canvasGroup == null)
-            return;
-
-        canvasGroup.alpha = 1f;
-        canvasGroup.interactable = true;
-        canvasGroup.blocksRaycasts = true;
+        isPaused = false;
+        Time.timeScale = 1f;
+        HidePauseUI();
     }
 
-    private void HideWinUI()
+    public void RestartLevel()
     {
-        if (canvasGroup == null)
-            return;
-
-        canvasGroup.alpha = 0f;
-        canvasGroup.interactable = false;
-        canvasGroup.blocksRaycasts = false;
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public void QuitGame()
@@ -142,15 +83,38 @@ public class WinCondition : MonoBehaviour
 #endif
     }
 
+    private void ShowPauseUI()
+    {
+        if (canvasGroup == null)
+            return;
+
+        canvasGroup.alpha = 1f;
+        canvasGroup.interactable = true;
+        canvasGroup.blocksRaycasts = true;
+
+        if (continueButton != null)
+            continueButton.Select();
+    }
+
+    private void HidePauseUI()
+    {
+        if (canvasGroup == null)
+            return;
+
+        canvasGroup.alpha = 0f;
+        canvasGroup.interactable = false;
+        canvasGroup.blocksRaycasts = false;
+    }
+
     private void EnsureRuntimeUI()
     {
-        if (winCanvas == null)
+        if (pauseCanvas == null)
         {
-            GameObject canvasObj = new GameObject("WinCanvas");
+            GameObject canvasObj = new GameObject("PauseCanvas");
             canvasObj.layer = LayerMask.NameToLayer("UI");
-            winCanvas = canvasObj.AddComponent<Canvas>();
-            winCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            winCanvas.sortingOrder = 2500;
+            pauseCanvas = canvasObj.AddComponent<Canvas>();
+            pauseCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            pauseCanvas.sortingOrder = 2000;
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -160,8 +124,8 @@ public class WinCondition : MonoBehaviour
 
         if (root == null)
         {
-            GameObject rootObj = new GameObject("WinRoot", typeof(RectTransform), typeof(CanvasGroup));
-            rootObj.transform.SetParent(winCanvas.transform, false);
+            GameObject rootObj = new GameObject("PauseRoot", typeof(RectTransform), typeof(CanvasGroup));
+            rootObj.transform.SetParent(pauseCanvas.transform, false);
             root = rootObj.GetComponent<RectTransform>();
             root.anchorMin = Vector2.zero;
             root.anchorMax = Vector2.one;
@@ -177,32 +141,19 @@ public class WinCondition : MonoBehaviour
         RectTransform panel = EnsurePanel();
 
         if (titleText == null)
-            titleText = CreateText(panel, "Title", "CONGRATULATIONS", 42, FontStyles.Bold);
+            titleText = CreateText(panel, "Title", "PAUSED", 42, FontStyles.Bold);
         titleText.color = accentColor;
 
-        if (timeText == null)
-            timeText = CreateText(panel, "TimeText", "Time: 00:00.0", 26, FontStyles.Normal);
-        timeText.color = textColor;
+        if (continueButton == null)
+            continueButton = CreateButton(panel, "Continue", "Continue", Resume);
 
-        if (mainMenuButton == null)
-            mainMenuButton = CreateButton(panel, "QuitButton", "Quit Game", QuitGame);
+        if (restartButton == null)
+            restartButton = CreateButton(panel, "Restart", "Restart Level", RestartLevel);
 
-        ConfigureQuitButton();
+        if (quitButton == null)
+            quitButton = CreateButton(panel, "Quit", "Quit Game", QuitGame);
 
         EnsureEventSystem();
-    }
-
-    private void ConfigureQuitButton()
-    {
-        if (mainMenuButton == null)
-            return;
-
-        mainMenuButton.onClick.RemoveAllListeners();
-        mainMenuButton.onClick.AddListener(QuitGame);
-
-        TextMeshProUGUI label = mainMenuButton.GetComponentInChildren<TextMeshProUGUI>();
-        if (label != null)
-            label.text = "Quit Game";
     }
 
     private void EnsureBackdrop()

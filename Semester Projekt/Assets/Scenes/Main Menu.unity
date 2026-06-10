@@ -293,6 +293,7 @@ MonoBehaviour:
   volume: 1
   playOnStart: 1
   waterStateClip: {fileID: 0}
+  stateOutputMixerGroup: {fileID: 8820659661365981448, guid: 3f929e6e6c6e41d48a25e6eeb7398ccb, type: 2}
   stateSoundVolume: 1
 --- !u!82 &668705035
 AudioSource:

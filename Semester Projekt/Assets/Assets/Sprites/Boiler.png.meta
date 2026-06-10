@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: a5561383ed256f54a83adf790af80709
+guid: 6d1eacc2483cf904592e96d160d9c0bb
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7282461348544508605
-    second: Background2_0
+      213: 140454737824146253
+    second: boiler_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Background2_0
+      name: boiler_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 164
-        height: 188
+        x: 8
+        y: 1
+        width: 15
+        height: 29
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: db2f18a2300801560800000000000000
-      internalID: 7282461348544508605
+      spriteID: d43670307def2f100800000000000000
+      internalID: 140454737824146253
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Background2_0: 7282461348544508605
+      boiler_0: 140454737824146253
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

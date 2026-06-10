@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 0ac8b0313b42ee44c93f84f5353435a9
+guid: 36822f6a4f05f684bb0f03a0eab6e11a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1667235655515072757
-    second: Butnariu_Background_0
+      213: -7443756053782179069
+    second: background_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Butnariu_Background_0
+      name: background_0
       rect:
         serializedVersion: 2
         x: 0
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b079824310accd8e0800000000000000
-      internalID: -1667235655515072757
+      spriteID: 30356abce4772b890800000000000000
+      internalID: -7443756053782179069
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Butnariu_Background_0: -1667235655515072757
+      background_0: -7443756053782179069
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

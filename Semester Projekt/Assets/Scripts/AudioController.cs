@@ -8,17 +8,27 @@ public class AudioController : MonoBehaviour
 
     [Header("Menu Music")]
     public AudioClip menuMusic;
-    public AudioMixerGroup outputMixerGroup;
-    [Range(0f, 1f)] public float volume = 1f;
+    public AudioMixerGroup menuMusicMixerGroup;
+    [Range(0f, 1f)] public float menuMusicVolume = 1f;
+
+    [Header("Game Music")]
+    public AudioClip gameMusic;
+    public AudioMixerGroup gameMusicMixerGroup;
+    [Range(0f, 1f)] public float gameMusicVolume = 1f;
+
+    [Header("Settings")]
     public bool playOnStart = true;
 
     [Header("State Sounds")]
     public AudioClip waterStateClip;
     public AudioClip solidStateClip;
     public AudioClip gasStateClip;
+    public AudioMixerGroup stateSoundMixerGroup;
     [Range(0f, 1f)] public float stateSoundVolume = 1f;
 
-    private AudioSource audioSource;
+    private AudioSource musicSource;
+    private AudioSource stateSource;
+    private bool isPlayingGameMusic = false;
 
     void Awake()
     {
@@ -31,60 +41,77 @@ public class AudioController : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        audioSource = GetComponent<AudioSource>();
-        audioSource.playOnAwake = false;
-        audioSource.loop = true;
-        audioSource.volume = volume;
-        audioSource.outputAudioMixerGroup = outputMixerGroup;
-
-        if (menuMusic != null)
-            audioSource.clip = menuMusic;
+        EnsureSources();
+        ConfigureMusicSource();
+        ConfigureStateSource();
     }
 
     void Start()
     {
         if (playOnStart)
-            PlayMusic();
+            PlayMenuMusic();
     }
 
     private void OnValidate()
     {
-        if (audioSource == null)
-            audioSource = GetComponent<AudioSource>();
+        EnsureSources();
+        ConfigureMusicSource();
+        ConfigureStateSource();
+    }
 
-        if (audioSource == null)
+    public void PlayMenuMusic()
+    {
+        EnsureSources();
+
+        if (musicSource == null)
             return;
 
-        audioSource.playOnAwake = false;
-        audioSource.loop = true;
-        audioSource.volume = volume;
-        audioSource.outputAudioMixerGroup = outputMixerGroup;
+        StopMusic();
+        isPlayingGameMusic = false;
 
-        if (menuMusic != null)
-            audioSource.clip = menuMusic;
+        musicSource.clip = menuMusic;
+        musicSource.outputAudioMixerGroup = menuMusicMixerGroup;
+        musicSource.volume = menuMusicVolume;
+        musicSource.loop = true;
+
+        if (menuMusic != null && !musicSource.isPlaying)
+            musicSource.Play();
+    }
+
+    public void PlayGameMusic()
+    {
+        EnsureSources();
+
+        if (musicSource == null)
+            return;
+
+        StopMusic();
+        isPlayingGameMusic = true;
+
+        musicSource.clip = gameMusic;
+        musicSource.outputAudioMixerGroup = gameMusicMixerGroup;
+        musicSource.volume = gameMusicVolume;
+        musicSource.loop = true;
+
+        if (gameMusic != null && !musicSource.isPlaying)
+            musicSource.Play();
     }
 
     public void PlayMusic()
     {
-        if (audioSource == null)
-            audioSource = GetComponent<AudioSource>();
-
-        if (audioSource == null || audioSource.clip == null)
-            return;
-
-        audioSource.loop = true;
-
-        if (!audioSource.isPlaying)
-            audioSource.Play();
+        if (isPlayingGameMusic)
+            PlayGameMusic();
+        else
+            PlayMenuMusic();
     }
 
     public void StopMusic()
     {
-        if (audioSource == null)
-            audioSource = GetComponent<AudioSource>();
+        if (musicSource == null)
+            musicSource = GetComponent<AudioSource>();
 
-        if (audioSource != null && audioSource.isPlaying)
-            audioSource.Stop();
+        if (musicSource != null && musicSource.isPlaying)
+            musicSource.Stop();
     }
 
     public void PlayWaterStateSound()
@@ -104,13 +131,57 @@ public class AudioController : MonoBehaviour
 
     private void PlayStateSound(AudioClip clip)
     {
-        if (audioSource == null)
-            audioSource = GetComponent<AudioSource>();
+        EnsureSources();
 
-        if (audioSource == null || clip == null)
+        if (stateSource == null || clip == null)
             return;
 
-        audioSource.outputAudioMixerGroup = outputMixerGroup;
-        audioSource.PlayOneShot(clip, stateSoundVolume);
+        stateSource.outputAudioMixerGroup = stateSoundMixerGroup;
+        stateSource.PlayOneShot(clip, stateSoundVolume);
+    }
+
+    private void EnsureSources()
+    {
+        AudioSource[] sources = GetComponents<AudioSource>();
+
+        if (musicSource == null)
+        {
+            if (sources.Length > 0)
+                musicSource = sources[0];
+            else
+                musicSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        if (stateSource == null)
+        {
+            if (sources.Length > 1)
+            {
+                stateSource = sources[1];
+            }
+            else
+            {
+                stateSource = gameObject.AddComponent<AudioSource>();
+            }
+        }
+    }
+
+    private void ConfigureMusicSource()
+    {
+        if (musicSource == null)
+            return;
+
+        musicSource.playOnAwake = false;
+        musicSource.loop = true;
+    }
+
+    private void ConfigureStateSource()
+    {
+        if (stateSource == null)
+            return;
+
+        stateSource.playOnAwake = false;
+        stateSource.loop = false;
+        stateSource.volume = 1f;
+        stateSource.outputAudioMixerGroup = stateSoundMixerGroup;
     }
 }

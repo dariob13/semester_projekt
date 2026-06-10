@@ -59,6 +59,7 @@ public class LiquidSolidForm : MonoBehaviour
 
     void Start()
     {
+        Time.timeScale = 1f;
         InitializeSimulation();
         
         // Try to find HeatDamageUI if not assigned

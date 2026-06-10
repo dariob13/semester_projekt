@@ -270,6 +270,7 @@ public class MainMenu : MonoBehaviour
         GameObject panel = CreatePanel("MainPanel", window, new Vector2(30f, 90f), new Vector2(30f, 30f));
         RectTransform list = CreateVerticalList(panel.transform, "MainButtons");
 
+        CreateButton(list, "Play", () => LoadLevelByIndex(1));
         CreateButton(list, "Level Select", OpenLevelSelect);
         CreateButton(list, "Credits", OpenCredits);
         CreateButton(list, "Quit", QuitGame);
